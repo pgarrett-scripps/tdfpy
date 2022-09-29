@@ -9,14 +9,20 @@ from numpy import unicode
 
 if sys.platform[:5] == "win32":
     data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
-    libname = os.path.join(data_dir, 'timsdata.dll')
+    libname = 'timsdata.dll'
+    data_path = os.path.join(data_dir, libname)
 elif sys.platform[:5] == "linux":
     data_dir = os.path.dirname(sys.modules["linux64"].__file__)
-    libname = os.path.join(data_dir, "libtimsdata.dll")
+    libname = 'libtimsdata.dll'
+    data_path = os.path.join(data_dir, libname)
+
 else:
     raise Exception("Unsupported platform.")
 
-dll = cdll.LoadLibrary(libname)
+if os.path.exist(data_path):
+    dll = cdll.LoadLibrary(data_path)
+else:
+    dll = cdll.LoadLibrary(libname)
 
 dll.tims_open_v2.argtypes = [c_char_p, c_uint32, c_uint32]
 dll.tims_open_v2.restype = c_uint64
