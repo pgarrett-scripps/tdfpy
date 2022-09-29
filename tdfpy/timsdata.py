@@ -19,7 +19,7 @@ elif sys.platform[:5] == "linux":
 else:
     raise Exception("Unsupported platform.")
 
-if os.path.exist(data_path):
+if os.path.exists(data_path):
     dll = cdll.LoadLibrary(data_path)
 else:
     dll = cdll.LoadLibrary(libname)
