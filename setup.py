@@ -4,7 +4,7 @@ setup(
     name='tdfpy',
     version='0.1.0',
     description='Pip package to work with bruker tdf and tdf_bin files',
-    url='https://github.com/shuds13/pyexample',
+    url='https://github.com/pgarrett-scripps/tdfpy',
     author='Patrick Garrett',
     author_email='pgarrett@scripps.edu',
     license='MIT',
