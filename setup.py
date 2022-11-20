@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='tdfpy',
-    version='0.1.1',
+    version='0.1.2',
     description='Pip package to work with bruker tdf and tdf_bin files',
     url='https://github.com/pgarrett-scripps/tdfpy',
     author='Patrick Garrett',

@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import numpy as np
 import sqlite3
 import os
@@ -92,6 +94,17 @@ dll.tims_oneoverk0_to_ccs_for_mz.restype = c_double
 
 dll.tims_ccs_to_oneoverk0_for_mz.argtypes = [c_double, c_int32, c_double]
 dll.tims_ccs_to_oneoverk0_for_mz.restype = c_double
+
+
+@contextmanager
+def timsdata_connect(analysis_dir: str):
+    td = None
+    try:
+        td = TimsData(analysis_dir)
+        yield td
+    finally:
+        if td:
+            td.close()
 
 
 def _throwLastTimsDataError(dll_handle):
