@@ -240,41 +240,6 @@ class TimsData:
 
         return buf
 
-    def readScansByNumber(self, frame_id, scan_begin, scan_end):
-
-        # buffer-growing loop
-        while True:
-            cnt = int(self.initial_frame_buffer_size)  # necessary cast to run with python 3.5
-            buf = np.empty(shape=cnt, dtype=np.uint32)
-            len = 4 * cnt
-
-            required_len = self.dll.tims_read_scans_v2(self.handle, frame_id, scan_begin, scan_end,
-                                                       buf.ctypes.data_as(POINTER(c_uint32)),
-                                                       len)
-            if required_len == 0:
-                _throwLastTimsDataError(self.dll)
-
-            if required_len > len:
-                if required_len > 16777216 * 2:
-                    print(required_len)
-                    # arbitrary limit for now...
-                    raise RuntimeError("Maximum expected frame size exceeded.")
-                self.initial_frame_buffer_size = required_len / 4 + 1  # grow buffer
-            else:
-                break
-
-        results = []
-        d = scan_end - scan_begin
-        for i in range(scan_begin, scan_end):
-            npeaks = buf[i - scan_begin]
-            indices = buf[d: d + npeaks]
-            d += npeaks
-            intensities = buf[d: d + npeaks]
-            d += npeaks
-            results.append((indices, intensities))
-
-        return results
-
     def readScans(self, frame_id, scan_begin, scan_end):
         """Read a range of scans from a frame, returning a list of scans, each scan being represented as a
         tuple (index_array, intensity_array).

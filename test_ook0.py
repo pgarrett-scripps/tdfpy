@@ -45,16 +45,17 @@ with timsdata.timsdata_connect(analysis_dir) as td:
 
         scan_number_map = {}
         for msms_frame in precursor_id_to_msms_frames[precursor_id]:
-            tof_scan_data = td.readScansByNumber(msms_frame, 0, parent_id_to_max_tof_scan[parent_id])
+            for i in range(0, parent_id_to_max_tof_scan[parent_id]):
+                tof_scan_data = td.extractCentroidedSpectrumForFrame(msms_frame, i, i+1)
+                print(i, tof_scan_data)
+                ook0 = td.scanNumToOneOverK0(msms_frame, [i])[0]
 
             # build frame precursor search
-            for scan_number, (indexes, intensities) in enumerate(tof_scan_data):
-                ook0 = td.scanNumToOneOverK0(msms_frame, [scan_number])[0]
                 if ook0 not in scan_number_map:
                     scan_number_map[ook0] = ([], [])
-                scan_number_map[ook0][0].extend(td.indexToMz(msms_frame, indexes))
-                scan_number_map[ook0][1].extend(intensities)
-                #ook0_spectra.extend([td.scanNumToOneOverK0(msms_frame, [scan_number])]*len(indexes))
+                scan_number_map[ook0][0].extend(td.indexToMz(msms_frame, tof_scan_data[0]))
+                scan_number_map[ook0][1].extend(tof_scan_data[1])
+                    #ook0_spectra.extend([td.scanNumToOneOverK0(msms_frame, [scan_number])]*len(indexes))
 
         """for scan_number in scan_number_map:
             print(scan_number, scan_number_map[scan_number])
