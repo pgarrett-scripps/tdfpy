@@ -49,18 +49,90 @@ with timsdata.timsdata_connect(analysis_dir) as td:
 
             # build frame precursor search
             for scan_number, (indexes, intensities) in enumerate(tof_scan_data):
-                if scan_number not in scan_number_map:
-                    scan_number_map[scan_number] = ([], [])
-                scan_number_map[scan_number][0].extend(td.indexToMz(msms_frame, indexes))
-                scan_number_map[scan_number][1].extend(intensities)
+                ook0 = td.scanNumToOneOverK0(msms_frame, [scan_number])[0]
+                if ook0 not in scan_number_map:
+                    scan_number_map[ook0] = ([], [])
+                scan_number_map[ook0][0].extend(td.indexToMz(msms_frame, indexes))
+                scan_number_map[ook0][1].extend(intensities)
                 #ook0_spectra.extend([td.scanNumToOneOverK0(msms_frame, [scan_number])]*len(indexes))
 
         """for scan_number in scan_number_map:
             print(scan_number, scan_number_map[scan_number])
         """
-        len_of_sepctra = [len(scan_number_map[scan_number][0]) for scan_number in scan_number_map]
+
+        mz_spectra, intensity_spectra, ook0_spectra = [], [], []
+        for ook0 in scan_number_map:
+            mz_spectra.extend(scan_number_map[ook0][0])
+            intensity_spectra.extend(scan_number_map[ook0][1])
+            ook0_spectra.extend([ook0]*len(scan_number_map[ook0][0]))
+
+        mz_spectra = np.array(mz_spectra)
+        intensity_spectra = np.array(intensity_spectra)
+        ook0_spectra = np.array(ook0_spectra)
+
+        idx = np.argsort(mz_spectra)
+
+        mz_spectra = mz_spectra[idx]
+        intensity_spectra = intensity_spectra[idx]
+        ook0_spectra = ook0_spectra[idx]
+
+        ppm_tolerance = 5/1_000_000
+
+        combine_spectra = [0]*len(mz_spectra)
+
+        current_mz, group_itr = None, 0
+        for i, mz in enumerate(mz_spectra):
+            if current_mz is None:
+                current_mz = mz
+                combine_spectra[i] = group_itr
+                continue
+
+            #print(mz, current_mz, current_mz - mz)
+            if abs(current_mz - mz) <= current_mz*ppm_tolerance:
+                pass
+            else:
+                group_itr += 1
+                current_mz = mz
+
+            combine_spectra[i] = group_itr
+
+        mz_comb, intensity_comb, ook0_comb = [], [], []
+
+        current_idx = 0
+        for grp in range(max(combine_spectra)):
+            start_idx = current_idx
+            end_index = None
+            for i, grp2 in enumerate(combine_spectra[start_idx:]):
+                if grp != grp2:
+                    end_index = current_idx + i
+                    current_idx = end_index
+                    break
+
+            mz_comb.append(np.median(mz_spectra[start_idx:end_index]))
+            intensity_comb.append(sum(intensity_spectra[start_idx:end_index]))
+            ook0_comb.append(np.median(ook0_spectra[start_idx:end_index]))
+
+            """print(combine_spectra[start_idx:end_index])
+            print(mz_spectra[start_idx:end_index])
+            print(ook0_spectra[start_idx:end_index])
+            print(intensity_spectra[start_idx:end_index])
+            print()"""
+
+        """with open('example_peaks_new.txt', 'w') as f:
+            for mz, i, ook0 in zip(mz_comb, intensity_comb, ook0_comb):
+                f.write(f'{mz} {i} {ook0}\n')
+
+        with open('example_peaks.txt', 'w') as f:
+            for mz, i, ook0 in zip(mz_spectra, intensity_spectra, ook0_spectra):
+                f.write(f'{mz} {i} {ook0}\n')"""
+
+        len_of_sepctra = [len(scan_number_map[ook0][0]) for ook0 in scan_number_map]
         #mz_spectra, intensity_spectra, ook0_spectra = zip(*sorted(zip(mz_spectra, intensity_spectra, ook0_spectra)))
         mz_arr, int_arr = td.readPasefMsMs([precursor_id])[precursor_id]
 
-        print(f'old spectra: {len(mz_arr)}, new spectra: {sum(len_of_sepctra)}')
+        """with open('example_peaks_old.txt', 'w') as f:
+            for mz, i in zip(mz_arr, int_arr):
+                f.write(f'{mz} {i}\n')"""
+
+        print(f'old spectra: {len(mz_arr)}, new spectra: {sum(len_of_sepctra)}, new new spectra: {len(mz_comb)}, >9 {len([ints for ints in intensity_comb if ints > 9])}')
 
