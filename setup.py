@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='tdfpy',
-    version='0.1.3',
+    version='0.1.6',
     description='Pip package to work with bruker tdf and tdf_bin files',
     url='https://github.com/pgarrett-scripps/tdfpy',
     author='Patrick Garrett',
@@ -12,8 +12,8 @@ setup(
     package_dir={'tdfpy': 'tdfpy'},
     include_package_data=True,
     package_data={'tdfpy': ['timsdata.dll', 'libtimsdata.so']},
-    install_requires=['pandas~=1.5.0',
-                      'numpy~=1.23.3',
+    install_requires=['numpy~=1.24.2',
+                      'pandas~=2.0.0',
                       ],
 
     classifiers=[

@@ -8,8 +8,6 @@ import sys
 from ctypes import *
 from enum import Enum
 
-from numpy import unicode
-
 logger = logging.getLogger(__name__)
 
 logger.debug(f'sys.platform: {sys.platform}')
@@ -149,12 +147,8 @@ class TimsData:
     def __init__(self, analysis_directory, use_recalibrated_state=False,
                  pressure_compensation_strategy=PressureCompensationStrategy.NoPressureCompensation):
 
-        if sys.version_info.major == 2:
-            if not isinstance(analysis_directory, unicode):
-                raise ValueError("analysis_directory must be a Unicode string.")
-        if sys.version_info.major == 3:
-            if not isinstance(analysis_directory, str):
-                raise ValueError("analysis_directory must be a string.")
+        if not isinstance(analysis_directory, str):
+            raise ValueError("analysis_directory must be a string.")
 
         self.dll = dll
 

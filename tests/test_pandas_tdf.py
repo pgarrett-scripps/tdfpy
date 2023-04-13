@@ -6,7 +6,7 @@ from tdfpy.pandas_tdf import PandasTdf
 TDF_PATH = r'200ngHeLaPASEF_1min.d\analysis.tdf'
 
 
-class TestStringMethods(unittest.TestCase):
+class TestPandasTDF(unittest.TestCase):
     pd_tdf = PandasTdf(TDF_PATH)
 
     def test_calibration_info(self):
