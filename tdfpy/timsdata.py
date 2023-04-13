@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 
 import numpy as np
@@ -9,21 +10,33 @@ from enum import Enum
 
 from numpy import unicode
 
+logger = logging.getLogger(__name__)
+
+logger.debug(f'sys.platform: {sys.platform}')
 if sys.platform[:5] == "win32":
+    logger.debug('platform win32 selected')
+    data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
+    libname = 'timsdata.dll'
+    data_path = os.path.join(data_dir, libname)
+elif sys.platform[:5] == "win64":
+    logger.debug('platform: win64 selected')
     data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
     libname = 'timsdata.dll'
     data_path = os.path.join(data_dir, libname)
 elif sys.platform[:5] == "linux":
+    logger.debug('platform: linux selected')
     data_dir = os.path.dirname(sys.modules["linux64"].__file__)
     libname = 'libtimsdata.dll'
     data_path = os.path.join(data_dir, libname)
-
 else:
     raise Exception("Unsupported platform.")
 
+
+logger.debug(f'data_path: {data_path}')
 if os.path.exists(data_path):
     dll = cdll.LoadLibrary(data_path)
 else:
+    logger.debug(f'{data_path} does not exist, trying {libname}')
     dll = cdll.LoadLibrary(libname)
 
 dll.tims_open_v2.argtypes = [c_char_p, c_uint32, c_uint32]
@@ -128,7 +141,7 @@ def ccsToOneOverK0ToCCSforMz(ccs, charge, mz):
 
 class PressureCompensationStrategy(Enum):
     NoPressureCompensation = 0
-    AnalyisGlobalPressureCompensation = 1
+    AnalysisGlobalPressureCompensation = 1
     PerFramePressureCompensation = 2
 
 
@@ -300,7 +313,7 @@ class TimsData:
         return result
 
     # read some "quasi profile" MS/MS spectra for a given list of precursors; returns a dict mapping
-    # 'precursor_id' to the profil arrays (intensity_values).
+    # 'precursor_id' to the profile arrays (intensity_values).
     def readPasefProfileMsMs(self, precursor_list):
         precursors_for_dll = np.array(precursor_list, dtype=np.int64)
 
@@ -321,7 +334,7 @@ class TimsData:
         return result
 
     # read "quasi profile" MS/MS spectra for a given frame; returns a dict mapping
-    # 'precursor_id' to the profil arrays (intensity_values).
+    # 'precursor_id' to the profile arrays (intensity_values).
     def readPasefProfileMsMsForFrame(self, frame_id):
         result = {}
 
@@ -372,7 +385,7 @@ class TimsData:
         return result
 
     # read "quasi profile" spectra for a tims frame;
-    # returns the profil array (intensity_values).
+    # returns the profile array (intensity_values).
     def extractProfileForFrame(self, frame_id, scan_begin, scan_end):
         result = None
 
@@ -402,7 +415,7 @@ class TimsData:
         in the order of ascending 'time_begin'.
 
         The function 'trace_sink' is called for each extracted trace with three arguments: job ID,
-        numpy array of frame IDs ("x axis"), numpy array of chromatogram values ("y axis").
+        numpy array of frame IDs ("x-axis"), numpy array of chromatogram values ("y-axis").
 
         For more information, see the documentation of the C-language API of the timsdata DLL.
 
@@ -416,8 +429,7 @@ class TimsData:
             except StopIteration:
                 return 2
             except Exception as e:
-                # TODO: instead of printing this here, let extractChromatograms throw this
-                print("extractChromatograms: generator produced exception ", e)
+                logger.error("extractChromatograms: generator produced exception ", e)
                 return 0
 
         @CHROMATOGRAM_TRACE_SINK
@@ -430,8 +442,7 @@ class TimsData:
                 )
                 return 1
             except Exception as e:
-                # TODO: instead of printing this here, let extractChromatograms throw this
-                print("extractChromatograms: sink produced exception ", e)
+                logger.error("extractChromatograms: sink produced exception ", e)
                 return 0
 
         unused_user_data = 0

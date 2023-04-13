@@ -1,2 +1,6 @@
 0.1.2
 - added context manager
+0.1.3
+- logging
+- updated numpy and pandas versions
+- moved testing data into repo

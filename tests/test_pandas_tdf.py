@@ -3,7 +3,9 @@ import pandas as pd
 
 from tdfpy.pandas_tdf import PandasTdf
 
-TDF_PATH = r'C:\Users\Ty\PycharmProjects\bruker_sdk\data\200ngHeLaPASEF_1min.d\analysis.tdf'
+TDF_PATH = r'200ngHeLaPASEF_1min.d\analysis.tdf'
+
+
 class TestStringMethods(unittest.TestCase):
     pd_tdf = PandasTdf(TDF_PATH)
 

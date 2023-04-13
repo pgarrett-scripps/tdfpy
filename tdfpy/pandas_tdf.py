@@ -1,13 +1,15 @@
 import sqlite3
+import logging
 from dataclasses import dataclass
-
 import pandas as pd
 
 from tdfpy.constants import TableNames
 
+logger = logging.getLogger(__name__)
 
-def convert_table_to_df(db:str, table_name:str) -> pd.DataFrame:
-    print(f'Fetching {table_name} from {db}')
+
+def convert_table_to_df(db: str, table_name: str) -> pd.DataFrame:
+    logger.debug(f'Fetching {table_name} from {db}')
     with sqlite3.connect(str(db)) as conn:
         df = pd.read_sql_query(f'SELECT * FROM {table_name}', conn)
         return df
