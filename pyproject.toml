@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "tdfpy"
+dynamic = ["version"]
+description = "Python package to work with bruker tdf and tdf_bin files"
+authors = [
+    {name = "Patrick Garrett", email = "pgarrett@scripps.edu"},
+]
+dependencies = [
+    "numpy",
+    "pandas"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "tdfpy.__version__"}
+
+[tool.pylint]
+max-line-length = 120
+fail-under = 9.5
+ignore = 'timsdata.py'
+good-names = ["df"]
+disable = ["too-many-public-methods"]

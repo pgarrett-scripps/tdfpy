@@ -18,7 +18,7 @@ or
 - pd_tdf.properties -> returns pd.DataFrame containing Properties table
 
 ## How to access analysis.tdf_bin db
-- from tdfpy.timsdata import TimsData
+- from tdfpy import TimsData
 - td = TimsData('path/to/dfolder')
 - td.readPasefMsMsForFrame(1) -> return msms spectra for first msms frame
 

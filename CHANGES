@@ -1,9 +1,0 @@
-0.1.2
-- added context manager
-0.1.3
-- logging
-- updated numpy and pandas versions
-- moved testing data into repo
-0.1.6
--updated numpy and pandas versions
-- removed unicode import from numpy
