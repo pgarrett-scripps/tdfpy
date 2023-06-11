@@ -22,12 +22,14 @@ platform_lib_map = {
     "linux": "libtimsdata.so"
 }
 
+
 # Function to get library name based on the platform
 def get_lib_name(platform):
     for key, value in platform_lib_map.items():
         if platform.startswith(key):
             return value
     raise Exception("Unsupported platform.")
+
 
 # Get library name based on the platform
 libname = get_lib_name(platform)

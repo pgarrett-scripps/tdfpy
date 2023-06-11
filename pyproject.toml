@@ -29,6 +29,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.dynamic]
 version = {attr = "tdfpy.__version__"}
 
+[tool.setuptools.package-data]
+tdfpy = ["*.dll", "*.so"]
+
 [tool.pylint]
 max-line-length = 120
 fail-under = 9.5
