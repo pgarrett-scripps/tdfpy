@@ -6,6 +6,8 @@
 import sqlite3
 import logging
 from dataclasses import dataclass
+from typing import List
+
 import pandas as pd
 
 from tdfpy.constants import TableNames
@@ -206,7 +208,7 @@ class PandasTdf:
         """
         return convert_table_to_df(self.db_path, TableNames.PRM_TARGETS.value)
 
-    def get_table_names(self) -> list[str]:
+    def get_table_names(self) -> List[str]:
         """
         Retrieves the names of all tables in the SQLite database.
 
@@ -220,7 +222,7 @@ class PandasTdf:
         return table_names
 
     @property
-    def is_dda(self):
+    def is_dda(self) -> bool:
         """
         Checks if the database contains DDA (Data-Dependent Acquisition) data.
 
@@ -230,7 +232,7 @@ class PandasTdf:
         return TableNames.PRECURSORS.value in self.get_table_names() and len(self.precursors) > 0
 
     @property
-    def is_prm(self):
+    def is_prm(self) -> bool:
         """
         Checks if the database contains PRM (Parallel Reaction Monitoring) data.
 
