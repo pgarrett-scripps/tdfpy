@@ -8,27 +8,27 @@ from ctypes import *
 import numpy as np
 import sqlite3
 
+import sys
+import os
+import logging
 
 logger = logging.getLogger(__name__)
 
-logger.debug(f'sys.platform: {sys.platform}')
-if sys.platform[:5] == "win32":
-    logger.debug('platform win32 selected')
+platform = sys.platform
+logger.debug(f'sys.platform: {platform}')
+
+if platform.startswith("win32") or platform.startswith("cygwin"):
+    logger.debug('platform: Windows selected')
     data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
     libname = 'timsdata.dll'
-    data_path = os.path.join(data_dir, libname)
-elif sys.platform[:5] == "win64":
-    logger.debug('platform: win64 selected')
+elif platform.startswith("linux"):
+    logger.debug('platform: Linux selected')
     data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
-    libname = 'timsdata.dll'
-    data_path = os.path.join(data_dir, libname)
-elif sys.platform[:5] == "linux":
-    logger.debug('platform: linux selected')
-    data_dir = os.path.dirname(sys.modules["linux64"].__file__)
-    libname = 'libtimsdata.dll'
-    data_path = os.path.join(data_dir, libname)
+    libname = 'libtimsdata.so'
 else:
     raise Exception("Unsupported platform.")
+
+data_path = os.path.join(data_dir, libname)
 
 
 logger.debug(f'data_path: {data_path}')
