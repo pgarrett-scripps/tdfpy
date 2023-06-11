@@ -1,8 +1,5 @@
-import logging
 from contextlib import contextmanager
 from enum import Enum
-import os
-import sys
 from ctypes import *
 
 import numpy as np
@@ -14,29 +11,46 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Get current platform
 platform = sys.platform
 logger.debug(f'sys.platform: {platform}')
 
-if platform.startswith("win32") or platform.startswith("cygwin"):
-    logger.debug('platform: Windows selected')
-    data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
-    libname = 'timsdata.dll'
-elif platform.startswith("linux"):
-    logger.debug('platform: Linux selected')
-    data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
-    libname = 'libtimsdata.so'
-else:
+# Dictionary to map platforms to their respective libraries
+platform_lib_map = {
+    "win32": "timsdata.dll",
+    "cygwin": "timsdata.dll",
+    "linux": "libtimsdata.so"
+}
+
+# Function to get library name based on the platform
+def get_lib_name(platform):
+    for key, value in platform_lib_map.items():
+        if platform.startswith(key):
+            return value
     raise Exception("Unsupported platform.")
 
+# Get library name based on the platform
+libname = get_lib_name(platform)
+logger.debug(f'platform: {platform} selected, libname: {libname}')
+
+# Get data directory
+data_dir = os.path.dirname(sys.modules["tdfpy"].__file__)
+
+# Construct data path
 data_path = os.path.join(data_dir, libname)
 
-
 logger.debug(f'data_path: {data_path}')
-if os.path.exists(data_path):
-    dll = cdll.LoadLibrary(data_path)
-else:
-    logger.debug(f'{data_path} does not exist, trying {libname}')
-    dll = cdll.LoadLibrary(libname)
+
+# Try to load library
+try:
+    if os.path.exists(data_path):
+        dll = cdll.LoadLibrary(data_path)
+    else:
+        logger.debug(f'{data_path} does not exist, trying {libname}')
+        dll = cdll.LoadLibrary(libname)
+except Exception as e:
+    logger.error(f"Error loading library: {e}")
+    raise
 
 dll.tims_open_v2.argtypes = [c_char_p, c_uint32, c_uint32]
 dll.tims_open_v2.restype = c_uint64
