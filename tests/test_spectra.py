@@ -35,7 +35,12 @@ class TestSpectra(unittest.TestCase):
         ]
 
         spectrum = Ms1Spectrum(
-            spectrum_index=0, frame_id=1, retention_time=1.5, num_peaks=2, peaks=peaks
+            spectrum_index=0,
+            frame_id=1,
+            retention_time=1.5,
+            num_peaks=2,
+            peaks=peaks,
+            ion_mobility_type="ook0",
         )
 
         self.assertEqual(spectrum.spectrum_index, 0)
@@ -43,6 +48,7 @@ class TestSpectra(unittest.TestCase):
         self.assertAlmostEqual(spectrum.retention_time, 1.5)
         self.assertEqual(spectrum.num_peaks, 2)
         self.assertEqual(len(spectrum.peaks), 2)
+        self.assertEqual(spectrum.ion_mobility_type, "ook0")
         self.assertIsInstance(spectrum, tuple)
 
     def test_get_centroided_ms1_spectrum(self):

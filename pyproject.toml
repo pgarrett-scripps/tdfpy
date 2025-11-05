@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tdfpy"
 dynamic = ["version"]
-description = "Python package to work with bruker tdf and tdf_bin files"
+description = "Python package for parsing Bruker timsTOF data with centroiding and noise filtering"
 authors = [
     {name = "Patrick Garrett", email = "pgarrett@scripps.edu"},
 ]
@@ -15,13 +15,19 @@ dependencies = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
+keywords = ["bruker", "timstof", "mass-spectrometry", "proteomics", "tdf"]
 
 [project.optional-dependencies]
 dev = [

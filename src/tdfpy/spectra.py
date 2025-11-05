@@ -2,18 +2,18 @@
 Higher-level Pythonic API for working with MS1 spectrum data from Bruker timsTOF files.
 
 This module provides a cleaner interface using NamedTuples and convenience functions
-for reading centroided MS1 spectra with optional peak merging.
+for reading centroided MS1 spectra with peak clustering/centroiding algorithms.
 """
 
-from typing import Generator, List, Literal, NamedTuple, Optional
+from typing import Generator, List, Literal, NamedTuple, Optional, Union
 import logging
 
 import numpy as np
 
-from .timsdata import TimsData
+from .timsdata import TimsData, oneOverK0ToCCSforMz
+from .noise import estimate_noise_level
 
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +23,9 @@ class Peak(NamedTuple):
     Attributes:
         mz: Mass-to-charge ratio
         intensity: Peak intensity (area)
-        ion_mobility: Ion mobility (1/K0) - note that for DLL-centroided spectra,
-                     this represents the average ion mobility across the frame
+        ion_mobility: Ion mobility value - either 1/K0 (reciprocal reduced mobility)
+                     or CCS (collision cross section in Ų) depending on the
+                     ion_mobility_type parameter used during extraction
     """
 
     mz: float
@@ -41,6 +42,7 @@ class Ms1Spectrum(NamedTuple):
         retention_time: Retention time in minutes
         num_peaks: Number of peaks in the spectrum
         peaks: List of Peak objects
+        ion_mobility_type: Type of ion mobility values in peaks ('ook0' or 'ccs')
     """
 
     spectrum_index: int
@@ -48,11 +50,13 @@ class Ms1Spectrum(NamedTuple):
     retention_time: float
     num_peaks: int
     peaks: List[Peak]
+    ion_mobility_type: Literal["ook0", "ccs"]
 
     def __repr__(self) -> str:
         return (
             f"Ms1Spectrum(index={self.spectrum_index}, frame_id={self.frame_id}, "
-            f"retention_time={self.retention_time:.2f} min, num_peaks={self.num_peaks})"
+            f"retention_time={self.retention_time:.2f} min, num_peaks={self.num_peaks}, "
+            f"ion_mobility_type='{self.ion_mobility_type}')"
         )
 
 
@@ -67,26 +71,27 @@ def merge_peaks(
     min_peaks: int = 3,
     max_peaks: Optional[int] = None,
 ) -> List[Peak]:
-    """Merge nearby peaks using m/z and ion mobility tolerances.
+    """Centroid profile-like peaks using m/z and ion mobility tolerances.
 
-    This function implements a greedy clustering algorithm that merges peaks
-    within specified m/z and ion mobility windows. Peaks are processed in
-    descending order of intensity.
+    This function implements a greedy clustering algorithm that centroids raw peaks
+    (similar to profile mode data) within specified m/z and ion mobility windows.
+    Peaks are processed in descending order of intensity, and nearby peaks are
+    combined using intensity-weighted averaging to produce centroided peaks.
 
     Args:
-        mz_array: Array of m/z values
+        mz_array: Array of m/z values from raw/profile-like data
         intensity_array: Array of intensity values
-        ion_mobility_array: Array of ion mobility (1/K0) values
-        mz_tolerance: Tolerance for m/z matching
+        ion_mobility_array: Array of ion mobility values (1/K0 or CCS)
+        mz_tolerance: Tolerance for m/z matching during centroiding
         mz_tolerance_type: Type of m/z tolerance - "ppm" or "da" (daltons)
-        im_tolerance: Tolerance for ion mobility matching
+        im_tolerance: Tolerance for ion mobility matching during centroiding
         im_tolerance_type: Type of ion mobility tolerance - "relative" or "absolute"
-        min_peaks: Minimum number of nearby peaks required to form a cluster.
-                  Set to 0 or 1 to keep all peaks.
-        max_peaks: Maximum number of merged peaks to return (keeps highest intensity)
+        min_peaks: Minimum number of nearby raw peaks required to form a centroid.
+                  Set to 0 or 1 to keep all peaks (no filtering).
+        max_peaks: Maximum number of centroided peaks to return (keeps highest intensity)
 
     Returns:
-        List of merged Peak objects
+        List of centroided Peak objects
 
     Example:
         >>> mz = np.array([100.0, 100.001, 200.0])
@@ -94,7 +99,13 @@ def merge_peaks(
         >>> im = np.array([0.8, 0.8, 0.9])
         >>> peaks = merge_peaks(mz, intensity, im, mz_tolerance=10, mz_tolerance_type="ppm")
     """
+    logger.debug(
+        "Centroiding %d raw peaks with mz_tol=%s %s, im_tol=%s %s, min_peaks=%d, max_peaks=%s",
+        len(mz_array), mz_tolerance, mz_tolerance_type, im_tolerance, im_tolerance_type, min_peaks, max_peaks
+    )
+
     if len(mz_array) == 0:
+        logger.debug("No raw peaks to centroid, returning empty list")
         return []
 
     # Pre-compute tolerances
@@ -117,9 +128,11 @@ def merge_peaks(
     mz_array = mz_array[sort_idx]
     intensity_array = intensity_array[sort_idx]
     ion_mobility_array = ion_mobility_array[sort_idx]
+    logger.debug("Sorted %d peaks by m/z", len(mz_array))
 
     # Sort by intensity for greedy clustering
     intensity_order = np.argsort(intensity_array)[::-1]
+    logger.debug("Created intensity-ordered index for greedy clustering")
 
     # Use boolean mask for tracking used peaks
     used_mask = np.zeros(len(mz_array), dtype=bool)
@@ -160,19 +173,19 @@ def merge_peaks(
 
         # Check minimum peaks requirement
         if min_peaks > 0 and np.sum(nearby_mask) < min_peaks:
-            # Not enough nearby peaks, skip this peak
+            # Not enough nearby raw peaks to form a centroid, skip
             used_mask[peak_idx] = True
             continue
 
         if not np.any(nearby_mask):
-            # Edge case: no nearby peaks (shouldn't happen but be safe)
+            # Edge case: no nearby raw peaks (shouldn't happen but be safe)
             merged_peaks.append(
                 Peak(mz=mz_peak, intensity=intensity_peak, ion_mobility=mobility_peak)
             )
             used_mask[peak_idx] = True
             continue
 
-        # Merge peaks using weighted average
+        # Centroid peaks using intensity-weighted average
         nearby_intensities = intensity_window[nearby_mask]
         merged_intensity = float(np.sum(nearby_intensities))
         merged_mz = float(
@@ -191,7 +204,16 @@ def merge_peaks(
         used_mask[global_nearby_idx] = True
 
         if max_peaks and len(merged_peaks) >= max_peaks:
+            logger.debug("Reached max_peaks limit of %d, stopping centroiding", max_peaks)
             break
+
+    logger.info(
+        "Centroiding complete: %d raw peaks → %d centroided peaks (%.1f%% reduction)",
+        len(mz_array), len(merged_peaks), 100 - len(merged_peaks) / len(mz_array) * 100
+    )
+    logger.debug(
+        "Total raw peaks used in centroiding: %d/%d", np.sum(used_mask), len(mz_array)
+    )
 
     return merged_peaks
 
@@ -200,34 +222,51 @@ def get_centroided_ms1_spectrum(
     td: TimsData,
     frame_id: int,
     spectrum_index: Optional[int] = None,
-    include_ion_mobility: bool = True,
+    ion_mobility_type: Literal["ook0", "ccs"] = "ook0",
     mz_tolerance: float = 8.0,
     mz_tolerance_type: Literal["ppm", "da"] = "ppm",
     im_tolerance: float = 0.05,
     im_tolerance_type: Literal["relative", "absolute"] = "relative",
     min_peaks: int = 3,
     max_peaks: Optional[int] = None,
+    noise_filter: Optional[
+        Union[
+            Literal["mad", "percentile", "histogram", "baseline", "iterative_median"],
+            float,
+            int,
+        ]
+    ] = None,
 ) -> Ms1Spectrum:
     """Extract a centroided MS1 spectrum for a single frame.
 
-    This function reads raw scans from the frame, converts indices to m/z values,
-    collects all peaks with their ion mobility values, and optionally merges
-    nearby peaks based on m/z and ion mobility tolerances.
+    This function reads raw profile-like scans from the frame, converts indices to m/z values,
+    collects all raw peaks with their ion mobility values, and applies peak centroiding
+    based on m/z and ion mobility tolerances to produce a centroided spectrum.
 
     Args:
         td: TimsData instance connected to the analysis directory
         frame_id: Frame ID to extract
         spectrum_index: Optional index for this spectrum (defaults to frame_id)
-        include_ion_mobility: If True, calculate and include ion mobility for each peak
-        mz_tolerance: Tolerance for m/z matching when merging
+        ion_mobility_type: Type of ion mobility to calculate and include for each peak
+                          - "ook0": 1/K0 (reciprocal reduced mobility) [default]
+                          - "ccs": Collision Cross Section in Ų (requires charge state estimation)
+        mz_tolerance: Tolerance for m/z matching during centroiding
         mz_tolerance_type: Type of m/z tolerance - "ppm" or "da" (daltons)
-        im_tolerance: Tolerance for ion mobility matching when merging
+        im_tolerance: Tolerance for ion mobility matching during centroiding
         im_tolerance_type: Type of ion mobility tolerance - "relative" or "absolute"
-        min_peaks: Minimum number of nearby peaks required to form a cluster (0 or 1 keeps all peaks)
-        max_peaks: Maximum number of merged peaks to return
+        min_peaks: Minimum number of nearby raw peaks required to form a centroid (0 or 1 keeps all)
+        max_peaks: Maximum number of centroided peaks to return
+        noise_filter: Noise filtering method to apply before centroiding. Options:
+                     - None: No noise filtering (default)
+                     - "mad": Median Absolute Deviation method
+                     - "percentile": 75th percentile threshold
+                     - "histogram": Histogram mode-based estimation
+                     - "baseline": Bottom quartile statistics
+                     - "iterative_median": Iterative median filtering
+                     - float/int: Direct intensity threshold value
 
     Returns:
-        Ms1Spectrum object containing peaks and metadata
+        Ms1Spectrum object containing centroided peaks and metadata
 
     Raises:
         ValueError: If the frame_id doesn't exist or is not an MS1 frame
@@ -235,19 +274,34 @@ def get_centroided_ms1_spectrum(
 
     Example:
         >>> with timsdata_connect('path/to/data.d') as td:
-        ...     # Get spectrum with default merging
+        ...     # Get centroided spectrum with 1/K0 (default)
         ...     spectrum = get_centroided_ms1_spectrum(td, frame_id=1)
-        ...     print(f"Found {spectrum.num_peaks} peaks")
+        ...     print(f"Found {spectrum.num_peaks} centroided peaks")
         ...
-        ...     # Get spectrum without merging
-        ...     spectrum = get_centroided_ms1_spectrum(td, frame_id=1)
+        ...     # Get spectrum with CCS values
+        ...     spectrum = get_centroided_ms1_spectrum(td, frame_id=1, ion_mobility_type="ccs")
         ...
-        ...     # Custom tolerances
+        ...     # Custom centroiding tolerances
         ...     spectrum = get_centroided_ms1_spectrum(
         ...         td, frame_id=1, mz_tolerance=10, im_tolerance=0.1
         ...     )
+        ...
+        ...     # With noise filtering
+        ...     spectrum = get_centroided_ms1_spectrum(
+        ...         td, frame_id=1, noise_filter="mad"
+        ...     )
+        ...
+        ...     # With custom noise threshold
+        ...     spectrum = get_centroided_ms1_spectrum(
+        ...         td, frame_id=1, noise_filter=1000.0
+        ...     )
     """
+    logger.debug(
+        "Extracting MS1 spectrum for frame_id=%d, noise_filter=%s", frame_id, noise_filter
+    )
+
     if td.conn is None:
+        logger.error("TimsData connection is not open")
         raise RuntimeError("TimsData connection is not open")
 
     # Get frame metadata from the database
@@ -258,51 +312,67 @@ def get_centroided_ms1_spectrum(
     result = cursor.fetchone()
 
     if result is None:
+        logger.error("Frame %d not found in database", frame_id)
         raise ValueError(f"Frame {frame_id} not found in database")
 
     retention_time_sec, num_scans, msms_type = result
+    logger.debug(
+        "Frame %d metadata: RT=%.2fs, NumScans=%d, MsMsType=%d",
+        frame_id, retention_time_sec, num_scans, msms_type
+    )
 
     if msms_type != 0:
+        logger.error("Frame %d is not an MS1 frame (MsMsType=%d)", frame_id, msms_type)
         raise ValueError(f"Frame {frame_id} is not an MS1 frame (MsMsType={msms_type})")
 
     retention_time_min = retention_time_sec / 60.0
 
     if num_scans == 0:
+        logger.warning("Frame %d has 0 scans, returning empty spectrum", frame_id)
         return Ms1Spectrum(
             spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
             frame_id=frame_id,
             retention_time=retention_time_min,
             num_peaks=0,
             peaks=[],
+            ion_mobility_type=ion_mobility_type,
         )
 
-    # Pre-compute ion mobility values for each scan if requested
-    if include_ion_mobility:
-        ion_mobility = td.scanNumToOneOverK0(frame_id, np.arange(0, num_scans))
-    else:
-        ion_mobility = np.zeros(num_scans, dtype=np.float64)
+    # Pre-compute ion mobility values for each scan (always required)
+    logger.debug(
+        "Computing %s ion mobility values for %d scans", ion_mobility_type, num_scans
+    )
+    ion_mobility = td.scanNumToOneOverK0(frame_id, np.arange(0, num_scans))
 
     # Read all scans at once
+    logger.debug("Reading %d scans from frame %d", num_scans, frame_id)
     results = td.readScans(frame_id, 0, num_scans)
 
     # Pre-allocate arrays with estimated size
     total_peaks = sum(len(idx) for idx, _ in results)
+    logger.debug(
+        "Frame %d contains %d total raw peaks across %d scans", frame_id, total_peaks, num_scans
+    )
 
     if total_peaks == 0:
+        logger.warning("Frame %d has 0 peaks, returning empty spectrum", frame_id)
         return Ms1Spectrum(
             spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
             frame_id=frame_id,
             retention_time=retention_time_min,
             num_peaks=0,
             peaks=[],
+            ion_mobility_type=ion_mobility_type,
         )
 
+    logger.debug("Pre-allocating arrays for %d peaks", total_peaks)
     mz_array = np.empty(total_peaks, dtype=np.float64)
     intensity_array = np.empty(total_peaks, dtype=np.float64)
     ion_mobility_array = np.empty(total_peaks, dtype=np.float64)
 
     # Collect all peaks from all scans
     offset = 0
+    logger.debug("Starting scan iteration and m/z conversion (profile-like raw data)")
     for scan_index, (index_array, intensity_scan) in enumerate(results):
         n_peaks = len(index_array)
         if n_peaks == 0:
@@ -321,8 +391,40 @@ def get_centroided_ms1_spectrum(
     mz_array = mz_array[:offset]
     intensity_array = intensity_array[:offset]
     ion_mobility_array = ion_mobility_array[:offset]
+    logger.debug("Collected %d raw profile-like peaks from all scans", offset)
 
-    # Apply peak merging if requested
+    # Apply noise filtering if requested
+    if noise_filter is not None:
+        logger.debug("Applying noise filter: %s", noise_filter)
+        noise_threshold = estimate_noise_level(intensity_array, method=noise_filter)
+        noise_mask = intensity_array >= noise_threshold
+
+        mz_array = mz_array[noise_mask]
+        intensity_array = intensity_array[noise_mask]
+        ion_mobility_array = ion_mobility_array[noise_mask]
+
+        filtered_count = offset - len(intensity_array)
+        logger.info(
+            "Noise filtering complete: removed %d peaks below threshold %.2f (%d → %d peaks, %.1f%% removed)",
+            filtered_count, noise_threshold, offset, len(intensity_array), filtered_count / offset * 100
+        )
+
+    # Convert to CCS if requested
+    if ion_mobility_type == "ccs":
+        logger.debug("Converting 1/K0 to CCS values (assuming charge +1)")
+        # Import conversion function
+        ccs_array = np.array(
+            [
+                oneOverK0ToCCSforMz(ook0, 1, mz)
+                for ook0, mz in zip(ion_mobility_array, mz_array)
+            ],
+            dtype=np.float64,
+        )
+        ion_mobility_array = ccs_array
+        logger.debug("Completed CCS conversion")
+
+    # Apply peak centroiding
+    logger.debug("Starting peak centroiding algorithm")
     peaks = merge_peaks(
         mz_array=mz_array,
         intensity_array=intensity_array,
@@ -337,8 +439,14 @@ def get_centroided_ms1_spectrum(
 
     # Apply max_peaks limit if specified
     if max_peaks and len(peaks) > max_peaks:
+        logger.debug("Applying max_peaks filter: %d → %d", len(peaks), max_peaks)
         # Sort by intensity and take top N
         peaks = sorted(peaks, key=lambda p: p.intensity, reverse=True)[:max_peaks]
+
+    logger.info(
+        "Extracted centroided MS1 spectrum: frame_id=%d, RT=%.2f min, centroided_peaks=%d, raw_peaks=%d, ion_mobility_type=%s",
+        frame_id, retention_time_min, len(peaks), total_peaks, ion_mobility_type
+    )
 
     return Ms1Spectrum(
         spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
@@ -346,81 +454,130 @@ def get_centroided_ms1_spectrum(
         retention_time=retention_time_min,
         num_peaks=len(peaks),
         peaks=peaks,
+        ion_mobility_type=ion_mobility_type,
     )
 
 
 def get_centroided_ms1_spectra(
     td: TimsData,
     frame_ids: Optional[List[int]] = None,
-    include_ion_mobility: bool = True,
+    ion_mobility_type: Literal["ook0", "ccs"] = "ook0",
     mz_tolerance: float = 8.0,
     mz_tolerance_type: Literal["ppm", "da"] = "ppm",
     im_tolerance: float = 0.05,
     im_tolerance_type: Literal["relative", "absolute"] = "relative",
     min_peaks: int = 3,
     max_peaks: Optional[int] = None,
+    noise_filter: Optional[
+        Union[
+            Literal["mad", "percentile", "histogram", "baseline", "iterative_median"],
+            float,
+        ]
+    ] = None,
 ) -> Generator[Ms1Spectrum, None, None]:
     """Extract centroided MS1 spectra for multiple frames.
 
-    Convenience function to extract multiple MS1 spectra. If frame_ids is not specified,
-    all MS1 frames in the file will be processed.
+    Convenience function to extract multiple centroided MS1 spectra. If frame_ids is not
+    specified, all MS1 frames in the file will be processed. Raw profile-like data is
+    converted to centroided spectra using peak clustering.
 
     Args:
         td: TimsData instance connected to the analysis directory
         frame_ids: Optional list of frame IDs to extract. If None, extracts all MS1 frames.
-        include_ion_mobility: If True, calculate and include ion mobility for each peak
-        mz_tolerance: Tolerance for m/z matching when merging
+        ion_mobility_type: Type of ion mobility to calculate and include for each peak
+                          - "ook0": 1/K0 (reciprocal reduced mobility) [default]
+                          - "ccs": Collision Cross Section in Ų (requires charge state estimation)
+        mz_tolerance: Tolerance for m/z matching during centroiding
         mz_tolerance_type: Type of m/z tolerance - "ppm" or "da" (daltons)
-        im_tolerance: Tolerance for ion mobility matching when merging
+        im_tolerance: Tolerance for ion mobility matching during centroiding
         im_tolerance_type: Type of ion mobility tolerance - "relative" or "absolute"
-        min_peaks: Minimum number of nearby peaks required to form a cluster
-        max_peaks: Maximum number of merged peaks to return per spectrum
+        min_peaks: Minimum number of nearby raw peaks required to form a centroid
+        noise_filter: Noise filtering method to apply before centroiding. Options:
+                     - None: No noise filtering (default)
+                     - "mad": Median Absolute Deviation method
+                     - "percentile": 75th percentile threshold
+                     - "histogram": Histogram mode-based estimation
+                     - "baseline": Bottom quartile statistics
+                     - "iterative_median": Iterative median filtering
+                     - float/int: Direct intensity threshold value
 
     Returns:
-        List of Ms1Spectrum objects, ordered by frame ID
+        Generator yielding Ms1Spectrum objects, ordered by frame ID
 
     Example:
         >>> with timsdata_connect('path/to/data.d') as td:
-        ...     # Get all MS1 spectra with default merging
-        ...     spectra = get_centroided_ms1_spectra(td)
-        ...     print(f"Found {len(spectra)} MS1 spectra")
+        ...     # Get all centroided MS1 spectra with 1/K0 (default)
+        ...     for spectrum in get_centroided_ms1_spectra(td):
+        ...         print(f"Spectrum {spectrum.spectrum_index}: {spectrum.num_peaks} centroided peaks")
         ...
-        ...     # Get specific frames without merging
-        ...     spectra = get_centroided_ms1_spectra(td, frame_ids=[1, 2, 3], merge=False)
+        ...     # Get spectra with CCS values
+        ...     for spectrum in get_centroided_ms1_spectra(td, ion_mobility_type="ccs"):
+        ...         print(f"CCS spectrum: {spectrum.num_peaks} peaks")
         ...
-        ...     # Custom tolerances
-        ...     spectra = get_centroided_ms1_spectra(
+        ...     # Custom centroiding tolerances
+        ...     spectra = list(get_centroided_ms1_spectra(
         ...         td, mz_tolerance=10, im_tolerance=0.1
-        ...     )
+        ...     ))
+        ...
+        ...     # With noise filtering
+        ...     for spectrum in get_centroided_ms1_spectra(td, noise_filter="mad"):
+        ...         print(f"Noise-filtered spectrum: {spectrum.num_peaks} peaks")
     """
+    logger.info(
+        "Starting batch MS1 centroided spectrum extraction (frame_ids=%s, noise_filter=%s)",
+        'all MS1' if frame_ids is None else f'{len(frame_ids)} specified', noise_filter
+    )
+
     if td.conn is None:
+        logger.error("TimsData connection is not open")
         raise RuntimeError("TimsData connection is not open")
 
     cursor = td.conn.cursor()
 
     if frame_ids is None:
         # Get all MS1 frame IDs
+        logger.debug("Querying database for all MS1 frame IDs")
         cursor.execute("SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id")
         frame_ids = [row[0] for row in cursor.fetchall()]
+        logger.info("Found %d MS1 frames to process", len(frame_ids))
+    else:
+        logger.debug("Processing %d user-specified frame IDs", len(frame_ids))
+
+    successful_count = 0
+    failed_count = 0
 
     for idx, frame_id in enumerate(frame_ids):
+        if (idx + 1) % 100 == 0:
+            logger.info("Progress: %d/%d frames processed", idx + 1, len(frame_ids))
+
         try:
             spectrum = get_centroided_ms1_spectrum(
                 td,
                 frame_id=frame_id,
                 spectrum_index=idx,
-                include_ion_mobility=include_ion_mobility,
+                ion_mobility_type=ion_mobility_type,
                 mz_tolerance=mz_tolerance,
                 mz_tolerance_type=mz_tolerance_type,
                 im_tolerance=im_tolerance,
                 im_tolerance_type=im_tolerance_type,
                 min_peaks=min_peaks,
                 max_peaks=max_peaks,
+                noise_filter=noise_filter,
+            )
+            successful_count += 1
+            logger.debug(
+                "Successfully extracted centroided spectrum %d/%d: frame_id=%d", idx + 1, len(frame_ids), frame_id
             )
             yield spectrum
         except (ValueError, RuntimeError) as e:
             # Log warning but continue processing
-            logging.getLogger(__name__).warning(
-                f"Failed to extract spectrum for frame {frame_id}: {e}"
+            failed_count += 1
+            logger.warning(
+                "Failed to extract spectrum for frame %d (%d/%d): %s", frame_id, idx + 1, len(frame_ids), e
             )
             continue
+
+    logger.info(
+        "Batch centroiding complete: %d successful, %d failed, %d total",
+        successful_count, failed_count, len(frame_ids)
+    )

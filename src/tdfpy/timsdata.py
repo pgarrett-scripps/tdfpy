@@ -243,7 +243,7 @@ class TimsData:
         use_recalibrated_state: bool = False,
         pressure_compensation_strategy: PressureCompensationStrategy = PressureCompensationStrategy.NoPressureCompensation,
     ) -> None:
-        if not isinstance(analysis_directory, str):  # type: ignore
+        if not isinstance(analysis_directory, str):
             raise ValueError("analysis_directory must be a string.")
 
         self.dll: CDLL = dll

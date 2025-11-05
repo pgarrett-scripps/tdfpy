@@ -7,42 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2024
 
-Major architectural refactor with high-level API and modern Python packaging.
-
 ### Added
-- **High-level Pythonic API** (`spectra.py`):
-  - `Peak` and `Ms1Spectrum` NamedTuples for immutable data structures
-  - `get_centroided_ms1_spectrum()` for extracting single centroided MS1 spectra
-  - `get_centroided_ms1_spectra()` generator for memory-efficient bulk processing
-  - `merge_peaks()` function with configurable m/z and ion mobility tolerances
-  - Support for both ppm/dalton m/z tolerances and relative/absolute ion mobility tolerances
-  - Noise filtering with `min_peaks` parameter
-- **Type annotations** throughout the codebase (Python 3.8+ compatible)
-- **Comprehensive test suite** using pytest:
-  - `test_spectra.py` for high-level API
-  - `test_timsdata.py` for low-level bindings
-  - `test_pandas_tdf.py` for DataFrame interface
-  - Test data included in repository (`tests/data/200ngHeLaPASEF_1min.d/`)
-- **Modern build system**:
-  - Migrated to `pyproject.toml` (PEP 517/518)
-  - Switched to `uv` package manager
-  - Hatchling build backend
-  - `Makefile` with common development commands
-- **Documentation**:
-  - Comprehensive README with multiple examples
-  - `.github/copilot-instructions.md` for AI-assisted development
-  - Improved docstrings throughout
+- High-level API with `Peak` and `Ms1Spectrum` NamedTuples
+- `get_centroided_ms1_spectrum()` and `get_centroided_ms1_spectra()` functions
+- `merge_peaks()` for peak centroiding with m/z and ion mobility tolerances
+- Noise filtering module (`noise.py`) with `estimate_noise_level()` function
+- CCS support via `ion_mobility_type` parameter ("ook0" or "ccs")
+- Type annotations throughout (Python 3.8+)
+- Test suite with test data included
+- Modern build system using `pyproject.toml` and `uv`
+- Logging support
 
 ### Changed
-- **Project structure**: Migrated to src-based layout (`src/tdfpy/`)
-- **Dependencies**: Relaxed strict version pinning for better compatibility
-- **API design**: Generator-based functions for large datasets (memory efficient)
-- **Return time units**: High-level API returns minutes (low-level still uses seconds)
-- **Peak merging algorithm**: Uses intensity-weighted averaging with binary search optimization
-
-### Removed
-- Strict numpy/pandas version dependencies (now flexible ranges)
-- Unicode import from numpy (no longer needed in modern versions)
+- Migrated to src-based layout
+- Generator-based API for memory efficiency
+- High-level API returns retention time in minutes
+- Relaxed dependency version requirements
 
 ## [0.1.7] - 2023
 

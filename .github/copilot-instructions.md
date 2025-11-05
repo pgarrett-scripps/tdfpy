@@ -4,7 +4,12 @@ applyTo: "**"
 
 # TDFpy - Bruker timsTOF Data Parser
 
-TDFpy provides low-level and high-level APIs for reading Bruker `.tdf` and `.tdf_bin` files from timsTOF mass spectrometry instruments. The package bridges native C/C++ DLLs with Python for efficient data access.
+TDFpy provides low-level and high-level APIs for reading Bruker `.tdf` and `.tdf_bin` files from timsTOF mass spectrometry instruments. The package bridges native C/C++ DLLs with Python for efficient data access. 
+
+
+## Updating README / Documentation / Changelog
+
+When updating these files use neutral language. Avoid over the top adjectives, since most of the time the code is very mundane and not 'extraordinary'. Be straight to the point and factual. Documentation should be clear and concise, not flowery or embellished. Only explain further if necessary for clarity.
 
 ## Architecture Overview
 

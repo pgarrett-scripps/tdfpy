@@ -8,6 +8,7 @@ Modules:
 - pandas_tdf: Contains the PandasTdf class for working with TDF data using pandas DataFrames.
 - timsdata: Contains the TimsData class for working with TimsData format.
 - spectra: Contains higher-level Pythonic API for working with MS1 spectrum data.
+- noise: Contains noise estimation functions for intensity filtering.
 
 Attributes:
 - __version__ (str): The current version of the package.
@@ -22,6 +23,7 @@ from .spectra import (
     get_centroided_ms1_spectrum,
     get_centroided_ms1_spectra,
 )
+from .noise import estimate_noise_level
 
 __version__ = "0.2.0"
 
@@ -34,4 +36,5 @@ __all__ = [
     "merge_peaks",
     "get_centroided_ms1_spectrum",
     "get_centroided_ms1_spectra",
+    "estimate_noise_level",
 ]

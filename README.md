@@ -14,6 +14,8 @@ TDFpy provides efficient access to mass spectrometry data from Bruker timsTOF in
 - **Type-safe**: Full type hints throughout (Python 3.8+)
 - **Cross-platform**: Supports Windows (`.dll`) and Linux (`.so`)
 - **Peak centroiding**: Advanced peak merging with m/z and ion mobility tolerances
+- **Noise filtering**: Multiple statistical methods for intensity-based noise removal
+- **CCS support**: Calculate Collision Cross Section values in addition to 1/K0
 
 ## Installation
 
@@ -72,15 +74,66 @@ Control peak centroiding behavior with tolerance parameters:
 from tdfpy import timsdata_connect, get_centroided_ms1_spectrum
 
 with timsdata_connect('path/to/data.d') as td:
+    # Custom centroiding tolerances
     spectrum = get_centroided_ms1_spectrum(
         td, 
         frame_id=1,
         mz_tolerance=15,              # m/z tolerance in ppm
-        mz_tolerance_type="ppm",      # or "dalton" for absolute
+        mz_tolerance_type="ppm",      # or "da" for daltons
         im_tolerance=0.05,            # ion mobility tolerance (relative)
         im_tolerance_type="relative", # or "absolute"
-        min_peaks=3                   # minimum nearby peaks to keep (noise filter)
+        min_peaks=3                   # minimum nearby peaks to keep
     )
+    
+    # With noise filtering
+    spectrum = get_centroided_ms1_spectrum(
+        td, 
+        frame_id=1,
+        noise_filter="mad"            # or "percentile", "histogram", "baseline", "iterative_median"
+    )
+    
+    # Get spectrum with CCS values instead of 1/K0
+    spectrum = get_centroided_ms1_spectrum(
+        td, 
+        frame_id=1,
+        ion_mobility_type="ccs"       # returns CCS in Ų, default is "ook0" (1/K0)
+    )
+```
+
+### Noise Filtering
+
+Apply statistical noise filtering before centroiding:
+
+```python
+from tdfpy import timsdata_connect, get_centroided_ms1_spectrum, estimate_noise_level
+import numpy as np
+
+with timsdata_connect('path/to/data.d') as td:
+    # Use built-in noise filtering methods
+    spectrum = get_centroided_ms1_spectrum(
+        td, 
+        frame_id=1,
+        noise_filter="mad"  # Median Absolute Deviation (recommended)
+    )
+    
+    # Available methods:
+    # - "mad": Median Absolute Deviation (robust to outliers)
+    # - "percentile": 75th percentile threshold
+    # - "histogram": Histogram mode-based estimation
+    # - "baseline": Bottom quartile statistics
+    # - "iterative_median": Iterative median filtering
+    
+    # Use custom threshold value
+    spectrum = get_centroided_ms1_spectrum(
+        td, 
+        frame_id=1,
+        noise_filter=1000.0  # Remove peaks below intensity 1000
+    )
+    
+    # Estimate noise independently
+    intensity_array = np.array([100, 150, 200, 1000, 5000])
+    threshold = estimate_noise_level(intensity_array, method="mad")
+    print(f"Estimated noise threshold: {threshold:.2f}")
 ```
 
 ### Low-Level Database Access
@@ -131,7 +184,7 @@ with timsdata_connect('path/to/data.d') as td:
 Peak(
     mz: float,              # m/z value
     intensity: float,       # Peak intensity
-    ion_mobility: float     # Ion mobility (1/K0)
+    ion_mobility: float     # Ion mobility (1/K0 or CCS depending on extraction parameters)
 )
 ```
 
@@ -142,7 +195,8 @@ Ms1Spectrum(
     frame_id: int,           # Frame ID from database
     retention_time: float,   # Retention time in minutes
     num_peaks: int,          # Number of peaks
-    peaks: List[Peak]        # List of Peak objects
+    peaks: List[Peak],       # List of Peak objects
+    ion_mobility_type: str   # Type of ion mobility values ("ook0" or "ccs")
 )
 ```
 
@@ -185,7 +239,7 @@ TDFpy uses a three-layer architecture:
 
 1. **Native DLL Layer**: Bruker's proprietary `timsdata.dll` (Windows) or `libtimsdata.so` (Linux)
 2. **Low-Level Wrapper**: `timsdata.py` provides ctypes bindings to DLL functions
-3. **High-Level API**: `spectra.py` provides Pythonic interface with NamedTuples and generators
+3. **High-Level API**: `spectra.py` provides Pythonic interface with NamedTuples and generators, `noise.py` provides noise estimation functions
 
 ## License
 
