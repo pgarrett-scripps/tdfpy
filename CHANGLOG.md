@@ -23,7 +23,11 @@ All notable changes to this project will be documented in this file.
 - added is_dda & is_prm properties
 - pytest and pylint workflows
 
+## [0.2.0]
 ### Changed
 - src based project
 - pypackage.toml
 - removed strict dependencies
+- type annotations
+- ms1 spectra centroiding function
+- uv
