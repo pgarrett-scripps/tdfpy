@@ -1,6 +1,6 @@
 """
-    This module contains PandasTdf which is a utility class to easily retrieve table information from the analysis.tdf
-    file in the format of pandas dataframes
+This module contains PandasTdf which is a utility class to easily retrieve table information from the analysis.tdf
+file in the format of pandas dataframes
 """
 
 import sqlite3
@@ -26,16 +26,16 @@ def convert_table_to_df(db_path: str, table_name: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The converted table as a pandas DataFrame.
     """
-    logger.debug('Fetching ' + table_name + ' from ' + db_path)
+    logger.debug("Fetching " + table_name + " from " + db_path)
     with sqlite3.connect(str(db_path)) as conn:
-        df = pd.read_sql_query(f'SELECT * FROM {table_name}', conn)
+        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
         return df
 
 
 @dataclass
 class PandasTdf:
     """
-        A class for working with TDF (Bruker Data File) using pandas DataFrames.
+    A class for working with TDF (Bruker Data File) using pandas DataFrames.
     """
 
     db_path: str
@@ -62,7 +62,9 @@ class PandasTdf:
         The 'DIA_FRAME_MSMS_WINDOW_GROUPS' table as a pandas DataFrame.
         :return: table as a pandas DataFrame
         """
-        return convert_table_to_df(self.db_path, TableNames.DIA_FRAME_MSMS_WINDOW_GROUPS.value)
+        return convert_table_to_df(
+            self.db_path, TableNames.DIA_FRAME_MSMS_WINDOW_GROUPS.value
+        )
 
     @property
     def dia_frame_msms_windows(self) -> pd.DataFrame:
@@ -70,7 +72,9 @@ class PandasTdf:
         The 'DIA_FRAME_MSMS_WINDOWS' table as a pandas DataFrame.
         :return: table as a pandas DataFrame
         """
-        return convert_table_to_df(self.db_path, TableNames.DIA_FRAME_MSMS_WINDOWS.value)
+        return convert_table_to_df(
+            self.db_path, TableNames.DIA_FRAME_MSMS_WINDOWS.value
+        )
 
     @property
     def error_log(self) -> pd.DataFrame:
@@ -190,7 +194,9 @@ class PandasTdf:
         The 'PRM_FRAME_MEASUREMENT_MODE' table as a pandas DataFrame.
         :return: table as a pandas DataFrame
         """
-        return convert_table_to_df(self.db_path, TableNames.PRM_FRAME_MEASUREMENT_MODE.value)
+        return convert_table_to_df(
+            self.db_path, TableNames.PRM_FRAME_MEASUREMENT_MODE.value
+        )
 
     @property
     def prm_frame_msms_info(self) -> pd.DataFrame:
@@ -229,7 +235,10 @@ class PandasTdf:
         Returns:
             bool: True if DDA data is present, False otherwise.
         """
-        return TableNames.PRECURSORS.value in self.get_table_names() and len(self.precursors) > 0
+        return (
+            TableNames.PRECURSORS.value in self.get_table_names()
+            and len(self.precursors) > 0
+        )
 
     @property
     def is_prm(self) -> bool:
@@ -239,4 +248,7 @@ class PandasTdf:
         Returns:
             bool: True if PRM data is present, False otherwise.
         """
-        return TableNames.PRM_FRAME_MSMS_INFO.value in self.get_table_names() and len(self.prm_frame_msms_info) > 0
+        return (
+            TableNames.PRM_FRAME_MSMS_INFO.value in self.get_table_names()
+            and len(self.prm_frame_msms_info) > 0
+        )

@@ -70,3 +70,8 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "numpy.*"
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.3",
+]

@@ -1,9 +1,17 @@
 import unittest
 import numpy as np
 
-from tdfpy import timsdata, Peak, Ms1Spectrum, merge_peaks, get_centroided_ms1_spectrum, get_centroided_ms1_spectra
+from tdfpy import (
+    timsdata,
+    Peak,
+    Ms1Spectrum,
+    merge_peaks,
+    get_centroided_ms1_spectrum,
+    get_centroided_ms1_spectra,
+)
 
-TDF_PATH = r'tests/data/200ngHeLaPASEF_1min.d'
+TDF_PATH = r"tests/data/200ngHeLaPASEF_1min.d"
+
 
 class TestSpectra(unittest.TestCase):
     """Test the higher-level spectra API."""
@@ -27,11 +35,7 @@ class TestSpectra(unittest.TestCase):
         ]
 
         spectrum = Ms1Spectrum(
-            spectrum_index=0,
-            frame_id=1,
-            retention_time=1.5,
-            num_peaks=2,
-            peaks=peaks
+            spectrum_index=0, frame_id=1, retention_time=1.5, num_peaks=2, peaks=peaks
         )
 
         self.assertEqual(spectrum.spectrum_index, 0)
@@ -46,7 +50,9 @@ class TestSpectra(unittest.TestCase):
         with timsdata.timsdata_connect(TDF_PATH) as td:
             # Get the first MS1 frame
             cursor = td.conn.cursor()
-            cursor.execute("SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id LIMIT 1")
+            cursor.execute(
+                "SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id LIMIT 1"
+            )
             frame_id = cursor.fetchone()[0]
 
             # Extract spectrum
@@ -72,7 +78,9 @@ class TestSpectra(unittest.TestCase):
         with timsdata.timsdata_connect(TDF_PATH) as td:
             # Get first 2 MS1 frame IDs
             cursor = td.conn.cursor()
-            cursor.execute("SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id LIMIT 2")
+            cursor.execute(
+                "SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id LIMIT 2"
+            )
             frame_ids = [row[0] for row in cursor.fetchall()]
 
             if len(frame_ids) >= 2:  # Only test if we have at least 2 frames
@@ -83,7 +91,7 @@ class TestSpectra(unittest.TestCase):
                 self.assertEqual(len(spectra), 2)
                 self.assertEqual(spectra[0].frame_id, frame_ids[0])
                 self.assertEqual(spectra[1].frame_id, frame_ids[1])
-                
+
                 # Verify sequential indexing
                 for idx, spectrum in enumerate(spectra):
                     self.assertEqual(spectrum.spectrum_index, idx)
@@ -97,10 +105,14 @@ class TestSpectra(unittest.TestCase):
 
         # Merge with 10 ppm tolerance, min_peaks=1 to keep all
         peaks = merge_peaks(
-            mz_array, intensity_array, ion_mobility_array,
-            mz_tolerance=10, mz_tolerance_type="ppm",
-            im_tolerance=0.05, im_tolerance_type="relative",
-            min_peaks=1
+            mz_array,
+            intensity_array,
+            ion_mobility_array,
+            mz_tolerance=10,
+            mz_tolerance_type="ppm",
+            im_tolerance=0.05,
+            im_tolerance_type="relative",
+            min_peaks=1,
         )
 
         # Should merge into 2 peaks
@@ -111,5 +123,5 @@ class TestSpectra(unittest.TestCase):
             self.assertIsInstance(peak, Peak)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

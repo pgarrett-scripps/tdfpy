@@ -6,10 +6,15 @@ for reading centroided MS1 spectra with optional peak merging.
 """
 
 from typing import Generator, List, Literal, NamedTuple, Optional
+import logging
 
 import numpy as np
 
 from .timsdata import TimsData
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Peak(NamedTuple):
@@ -21,6 +26,7 @@ class Peak(NamedTuple):
         ion_mobility: Ion mobility (1/K0) - note that for DLL-centroided spectra,
                      this represents the average ion mobility across the frame
     """
+
     mz: float
     intensity: float
     ion_mobility: float
@@ -36,6 +42,7 @@ class Ms1Spectrum(NamedTuple):
         num_peaks: Number of peaks in the spectrum
         peaks: List of Peak objects
     """
+
     spectrum_index: int
     frame_id: int
     retention_time: float
@@ -58,7 +65,7 @@ def merge_peaks(
     im_tolerance: float = 0.05,
     im_tolerance_type: Literal["relative", "absolute"] = "relative",
     min_peaks: int = 3,
-    max_peaks: Optional[int] = None
+    max_peaks: Optional[int] = None,
 ) -> List[Peak]:
     """Merge nearby peaks using m/z and ion mobility tolerances.
 
@@ -129,7 +136,9 @@ def merge_peaks(
         # Calculate tolerances
         mz_tol = mz_peak * mz_tol_factor if mz_tolerance_type == "ppm" else mz_tol_abs
         mobility_tol = (
-            mobility_peak * mobility_tol_factor if im_tolerance_type == "relative" else mobility_tol_abs
+            mobility_peak * mobility_tol_factor
+            if im_tolerance_type == "relative"
+            else mobility_tol_abs
         )
 
         # Binary search for mz range
@@ -157,17 +166,25 @@ def merge_peaks(
 
         if not np.any(nearby_mask):
             # Edge case: no nearby peaks (shouldn't happen but be safe)
-            merged_peaks.append(Peak(mz=mz_peak, intensity=intensity_peak, ion_mobility=mobility_peak))
+            merged_peaks.append(
+                Peak(mz=mz_peak, intensity=intensity_peak, ion_mobility=mobility_peak)
+            )
             used_mask[peak_idx] = True
             continue
 
         # Merge peaks using weighted average
         nearby_intensities = intensity_window[nearby_mask]
         merged_intensity = float(np.sum(nearby_intensities))
-        merged_mz = float(np.average(mz_window[nearby_mask], weights=nearby_intensities))
-        merged_mobility = float(np.average(mobility_window[nearby_mask], weights=nearby_intensities))
+        merged_mz = float(
+            np.average(mz_window[nearby_mask], weights=nearby_intensities)
+        )
+        merged_mobility = float(
+            np.average(mobility_window[nearby_mask], weights=nearby_intensities)
+        )
 
-        merged_peaks.append(Peak(mz=merged_mz, intensity=merged_intensity, ion_mobility=merged_mobility))
+        merged_peaks.append(
+            Peak(mz=merged_mz, intensity=merged_intensity, ion_mobility=merged_mobility)
+        )
 
         # Mark as used (convert local indices to global)
         global_nearby_idx = np.where(nearby_mask)[0] + left_idx
@@ -189,7 +206,7 @@ def get_centroided_ms1_spectrum(
     im_tolerance: float = 0.05,
     im_tolerance_type: Literal["relative", "absolute"] = "relative",
     min_peaks: int = 3,
-    max_peaks: Optional[int] = None
+    max_peaks: Optional[int] = None,
 ) -> Ms1Spectrum:
     """Extract a centroided MS1 spectrum for a single frame.
 
@@ -236,8 +253,7 @@ def get_centroided_ms1_spectrum(
     # Get frame metadata from the database
     cursor = td.conn.cursor()
     cursor.execute(
-        "SELECT Time, NumScans, MsMsType FROM Frames WHERE Id = ?",
-        (frame_id,)
+        "SELECT Time, NumScans, MsMsType FROM Frames WHERE Id = ?", (frame_id,)
     )
     result = cursor.fetchone()
 
@@ -257,7 +273,7 @@ def get_centroided_ms1_spectrum(
             frame_id=frame_id,
             retention_time=retention_time_min,
             num_peaks=0,
-            peaks=[]
+            peaks=[],
         )
 
     # Pre-compute ion mobility values for each scan if requested
@@ -278,7 +294,7 @@ def get_centroided_ms1_spectrum(
             frame_id=frame_id,
             retention_time=retention_time_min,
             num_peaks=0,
-            peaks=[]
+            peaks=[],
         )
 
     mz_array = np.empty(total_peaks, dtype=np.float64)
@@ -316,7 +332,7 @@ def get_centroided_ms1_spectrum(
         im_tolerance=im_tolerance,
         im_tolerance_type=im_tolerance_type,
         min_peaks=min_peaks,
-        max_peaks=max_peaks
+        max_peaks=max_peaks,
     )
 
     # Apply max_peaks limit if specified
@@ -329,7 +345,7 @@ def get_centroided_ms1_spectrum(
         frame_id=frame_id,
         retention_time=retention_time_min,
         num_peaks=len(peaks),
-        peaks=peaks
+        peaks=peaks,
     )
 
 
@@ -342,7 +358,7 @@ def get_centroided_ms1_spectra(
     im_tolerance: float = 0.05,
     im_tolerance_type: Literal["relative", "absolute"] = "relative",
     min_peaks: int = 3,
-    max_peaks: Optional[int] = None
+    max_peaks: Optional[int] = None,
 ) -> Generator[Ms1Spectrum, None, None]:
     """Extract centroided MS1 spectra for multiple frames.
 
@@ -399,14 +415,12 @@ def get_centroided_ms1_spectra(
                 im_tolerance=im_tolerance,
                 im_tolerance_type=im_tolerance_type,
                 min_peaks=min_peaks,
-                max_peaks=max_peaks
+                max_peaks=max_peaks,
             )
             yield spectrum
         except (ValueError, RuntimeError) as e:
             # Log warning but continue processing
-            import logging
             logging.getLogger(__name__).warning(
                 f"Failed to extract spectrum for frame {frame_id}: {e}"
             )
             continue
-

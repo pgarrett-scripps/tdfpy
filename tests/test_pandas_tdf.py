@@ -3,7 +3,7 @@ import pandas as pd
 
 from tdfpy.pandas_tdf import PandasTdf
 
-TDF_PATH = r'tests/data/200ngHeLaPASEF_1min.d/analysis.tdf'
+TDF_PATH = r"tests/data/200ngHeLaPASEF_1min.d/analysis.tdf"
 
 
 class TestPandasTDF(unittest.TestCase):
@@ -16,7 +16,9 @@ class TestPandasTDF(unittest.TestCase):
         self.assertTrue(isinstance(self.pd_tdf.dia_frame_msms_info, pd.DataFrame))
 
     def test_dia_frame_msms_window_groups(self):
-        self.assertTrue(isinstance(self.pd_tdf.dia_frame_msms_window_groups, pd.DataFrame))
+        self.assertTrue(
+            isinstance(self.pd_tdf.dia_frame_msms_window_groups, pd.DataFrame)
+        )
 
     def test_dia_frame_msms_windows(self):
         self.assertTrue(isinstance(self.pd_tdf.dia_frame_msms_windows, pd.DataFrame))
@@ -64,5 +66,5 @@ class TestPandasTDF(unittest.TestCase):
         self.assertTrue(isinstance(self.pd_tdf.tims_calibration, pd.DataFrame))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

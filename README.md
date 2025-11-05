@@ -1,57 +1,214 @@
 # TDFpy
 
-Basic pip package to handle Bruker's .tdf and .tdfbin files with both low-level and high-level APIs.
+A Python package for parsing Bruker timsTOF data files (`.tdf` and `.tdf_bin`) with both low-level and high-level APIs.
 
-## How to install
+TDFpy provides efficient access to mass spectrometry data from Bruker timsTOF instruments, including:
+- High-level API for centroided MS1 spectra with peak merging
+- Low-level ctypes bindings to Bruker's native libraries
+- Pandas DataFrame interface to SQLite metadata tables
+
+## Features
+
+- **Three-layer architecture**: Native DLL → ctypes wrapper → Pythonic API
+- **Memory-efficient**: Generator-based API for processing large datasets
+- **Type-safe**: Full type hints throughout (Python 3.8+)
+- **Cross-platform**: Supports Windows (`.dll`) and Linux (`.so`)
+- **Peak centroiding**: Advanced peak merging with m/z and ion mobility tolerances
+
+## Installation
+
+### From PyPI
 ```bash
 pip install tdfpy
 ```
 
-or
-
+### From source (using uv)
 ```bash
 git clone https://github.com/pgarrett-scripps/tdfpy.git
 cd tdfpy
-pip install .
+uv pip install -e .
 ```
 
 ## Quick Start Examples
 
 ### High-Level API (Recommended for MS1 Spectra)
+
+The high-level API provides centroided MS1 spectra with automatic peak merging:
+
 ```python
 from tdfpy import timsdata_connect, get_centroided_ms1_spectrum, get_centroided_ms1_spectra
 
 # Read a single MS1 spectrum with centroiding
 with timsdata_connect('path/to/data.d') as td:
-    spectrum = get_centroided_ms1_spectrum(td, frame_id=1)
-    print(f"Found {spectrum.num_peaks} peaks at RT={spectrum.retention_time:.2f} min")
+    # Get first MS1 frame ID
+    cursor = td.conn.cursor()
+    cursor.execute("SELECT Id FROM Frames WHERE MsMsType = 0 ORDER BY Id LIMIT 1")
+    frame_id = cursor.fetchone()[0]
+    
+    spectrum = get_centroided_ms1_spectrum(td, frame_id)
+    print(f"Frame {spectrum.frame_id}: {spectrum.num_peaks} peaks at RT={spectrum.retention_time:.2f} min")
 
+    # Access individual peaks
     for peak in spectrum.peaks[:5]:
-        print(f"m/z: {peak.mz:.4f}, intensity: {peak.intensity:.2f}, mobility: {peak.ion_mobility:.4f}")
+        print(f"  m/z: {peak.mz:.4f}, intensity: {peak.intensity:.0f}, mobility: {peak.ion_mobility:.4f}")
 
-# Read all MS1 spectra
+# Read all MS1 spectra (returns generator for memory efficiency)
 with timsdata_connect('path/to/data.d') as td:
-    spectra = get_centroided_ms1_spectra(td)
-    print(f"Loaded {len(spectra)} MS1 spectra")
+    spectra_generator = get_centroided_ms1_spectra(td)
+    
+    # Process spectra one at a time
+    for spectrum in spectra_generator:
+        print(f"Spectrum {spectrum.spectrum_index}: {spectrum.num_peaks} peaks")
+    
+    # Or convert to list (caution: may use significant memory)
+    # spectra_list = list(get_centroided_ms1_spectra(td, frame_ids=[1, 2, 3]))
+```
+
+### Customizing Peak Merging
+
+Control peak centroiding behavior with tolerance parameters:
+
+```python
+from tdfpy import timsdata_connect, get_centroided_ms1_spectrum
+
+with timsdata_connect('path/to/data.d') as td:
+    spectrum = get_centroided_ms1_spectrum(
+        td, 
+        frame_id=1,
+        mz_tolerance=15,              # m/z tolerance in ppm
+        mz_tolerance_type="ppm",      # or "dalton" for absolute
+        im_tolerance=0.05,            # ion mobility tolerance (relative)
+        im_tolerance_type="relative", # or "absolute"
+        min_peaks=3                   # minimum nearby peaks to keep (noise filter)
+    )
 ```
 
 ### Low-Level Database Access
+
+Access SQLite metadata tables as Pandas DataFrames:
+
 ```python
 from tdfpy import PandasTdf
 
-pd_tdf = PandasTdf('path/to/analysis.tdf')
-pd_tdf.precursors  # returns pd.DataFrame containing Precursors table
-pd_tdf.frames      # returns pd.DataFrame containing Frames table
-pd_tdf.properties  # returns pd.DataFrame containing Properties table
+pd_tdf = PandasTdf('path/to/data.d/analysis.tdf')
+
+# Access various metadata tables
+frames_df = pd_tdf.frames          # Frame metadata (RT, scan range, etc.)
+precursors_df = pd_tdf.precursors  # Precursor information for MS2
+properties_df = pd_tdf.properties  # Global metadata properties
+
+# Query specific frames
+ms1_frames = frames_df[frames_df['MsMsType'] == 0]
+print(f"Found {len(ms1_frames)} MS1 frames")
 ```
 
 ### Low-Level Binary Data Access
-```python
-from tdfpy import TimsData
 
-td = TimsData('path/to/data.d')
-td.readPasefMsMsForFrame(1)  # return msms spectra for first msms frame
-td.close()
+Direct access to Bruker's native library functions:
+
+```python
+from tdfpy import timsdata_connect
+
+with timsdata_connect('path/to/data.d') as td:
+    # Read raw scan data for a frame
+    frame_id = 1
+    scan_data = td.readScans(frame_id, 0, 1000)  # (frame_id, start_scan, end_scan)
+    
+    # Convert detector indices to m/z values
+    mz_values = td.indexToMz(frame_id, scan_data[0])  # scan_data[0] = indices
+    
+    # Convert scan numbers to ion mobility
+    mobility = td.scanNumToOneOverK0(frame_id, 500)  # 1/K0 for scan 500
+    
+    # Read PASEF MS/MS data
+    msms_data = td.readPasefMsMsForFrame(frame_id)
+```
+
+## Data Structures
+
+### Peak (NamedTuple)
+```python
+Peak(
+    mz: float,              # m/z value
+    intensity: float,       # Peak intensity
+    ion_mobility: float     # Ion mobility (1/K0)
+)
+```
+
+### Ms1Spectrum (NamedTuple)
+```python
+Ms1Spectrum(
+    spectrum_index: int,     # Sequential spectrum number
+    frame_id: int,           # Frame ID from database
+    retention_time: float,   # Retention time in minutes
+    num_peaks: int,          # Number of peaks
+    peaks: List[Peak]        # List of Peak objects
+)
+```
+
+## Development
+
+This project uses `uv` for package management. See the `Makefile` for common commands:
+
+```bash
+make install-dev    # Install with dev dependencies
+make test          # Run pytest tests
+make lint          # Run mypy + pylint
+make build         # Build package
+make clean         # Remove build artifacts
+```
+
+## Testing
+
+```bash
+# Run all tests
+make test
+
+# Run specific test file
+python -m pytest tests/test_spectra.py -v
+
+# Run with coverage
+make coverage
+```
+
+## Requirements
+
+- Python 3.8+
+- NumPy
+- Pandas
+- SQLite3 (standard library)
+- Bruker's native timsTOF library (included in package)
+
+## Architecture
+
+TDFpy uses a three-layer architecture:
+
+1. **Native DLL Layer**: Bruker's proprietary `timsdata.dll` (Windows) or `libtimsdata.so` (Linux)
+2. **Low-Level Wrapper**: `timsdata.py` provides ctypes bindings to DLL functions
+3. **High-Level API**: `spectra.py` provides Pythonic interface with NamedTuples and generators
+
+## License
+
+See LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+- All tests pass (`make test`)
+- Code passes linting (`make lint`)
+- Type hints are included
+- Docstrings follow Google style
+
+## Citation
+
+If you use TDFpy in your research, please cite the repository:
+```
+@software{tdfpy,
+  author = {Garrett, Patrick},
+  title = {TDFpy: Python parser for Bruker timsTOF data},
+  url = {https://github.com/pgarrett-scripps/tdfpy},
+  version = {0.2.0}
+}
 ```
 
 
