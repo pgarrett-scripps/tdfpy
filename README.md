@@ -1,4 +1,17 @@
-# TDFpy
+```
+ ███████████ ██████████   ███████████                     
+░█░░░███░░░█░░███░░░░███ ░░███░░░░░░█                     
+░   ░███  ░  ░███   ░░███ ░███   █ ░  ████████  █████ ████
+    ░███     ░███    ░███ ░███████   ░░███░░███░░███ ░███ 
+    ░███     ░███    ░███ ░███░░░█    ░███ ░███ ░███ ░███ 
+    ░███     ░███    ███  ░███  ░     ░███ ░███ ░███ ░███ 
+    █████    ██████████   █████       ░███████  ░░███████ 
+   ░░░░░    ░░░░░░░░░░   ░░░░░        ░███░░░    ░░░░░███ 
+                                      ░███       ███ ░███ 
+                                      █████     ░░██████  
+                                     ░░░░░       ░░░░░░   
+```
+
 
 A Python package for parsing Bruker timsTOF data files (`.tdf` and `.tdf_bin`) with both low-level and high-level APIs.
 
@@ -14,8 +27,6 @@ TDFpy provides efficient access to mass spectrometry data from Bruker timsTOF in
 - **Type-safe**: Full type hints throughout (Python 3.8+)
 - **Cross-platform**: Supports Windows (`.dll`) and Linux (`.so`)
 - **Peak centroiding**: Advanced peak merging with m/z and ion mobility tolerances
-- **Noise filtering**: Multiple statistical methods for intensity-based noise removal
-- **CCS support**: Calculate Collision Cross Section values in addition to 1/K0
 
 ## Installation
 
