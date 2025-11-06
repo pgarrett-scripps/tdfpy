@@ -38,7 +38,6 @@ class TestSpectra(unittest.TestCase):
             spectrum_index=0,
             frame_id=1,
             retention_time=1.5,
-            num_peaks=2,
             peaks=peaks,
             ion_mobility_type="ook0",
         )

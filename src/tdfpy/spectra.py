@@ -48,9 +48,13 @@ class Ms1Spectrum(NamedTuple):
     spectrum_index: int
     frame_id: int
     retention_time: float
-    num_peaks: int
     peaks: List[Peak]
     ion_mobility_type: Literal["ook0", "ccs"]
+
+    @property
+    def num_peaks(self) -> int:
+        """Number of peaks in the spectrum."""
+        return len(self.peaks)
 
     def __repr__(self) -> str:
         return (
@@ -333,7 +337,6 @@ def get_centroided_ms1_spectrum(
             spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
             frame_id=frame_id,
             retention_time=retention_time_min,
-            num_peaks=0,
             peaks=[],
             ion_mobility_type=ion_mobility_type,
         )
@@ -360,7 +363,6 @@ def get_centroided_ms1_spectrum(
             spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
             frame_id=frame_id,
             retention_time=retention_time_min,
-            num_peaks=0,
             peaks=[],
             ion_mobility_type=ion_mobility_type,
         )
@@ -452,7 +454,6 @@ def get_centroided_ms1_spectrum(
         spectrum_index=spectrum_index if spectrum_index is not None else frame_id,
         frame_id=frame_id,
         retention_time=retention_time_min,
-        num_peaks=len(peaks),
         peaks=peaks,
         ion_mobility_type=ion_mobility_type,
     )

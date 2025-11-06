@@ -205,7 +205,6 @@ Ms1Spectrum(
     spectrum_index: int,     # Sequential spectrum number
     frame_id: int,           # Frame ID from database
     retention_time: float,   # Retention time in minutes
-    num_peaks: int,          # Number of peaks
     peaks: List[Peak],       # List of Peak objects
     ion_mobility_type: str   # Type of ion mobility values ("ook0" or "ccs")
 )
