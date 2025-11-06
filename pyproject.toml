@@ -19,6 +19,9 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -41,11 +44,21 @@ path = "src/tdfpy/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tdfpy"]
+artifacts = [
+    "*.dll",
+    "*.so",
+]
+force-include = { "src/tdfpy/libtimsdata.so" = "tdfpy/libtimsdata.so" }
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/tdfpy/timsdata.dll" = "tdfpy/timsdata.dll"
-"src/tdfpy/libtimsdata.so" = "tdfpy/libtimsdata.so"
-"src/tdfpy/py.typed" = "tdfpy/py.typed"
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "tests/",
+    "README.md",
+    "LICENSE",
+    "CHANGLOG.md",
+]
+force-include = { "src/tdfpy/libtimsdata.so" = "src/tdfpy/libtimsdata.so" }
 
 [tool.pylint]
 max-line-length = 120

@@ -70,7 +70,6 @@ class Ms1Spectrum(NamedTuple):
     spectrum_index: int
     frame_id: int
     retention_time: float  # minutes
-    num_peaks: int
     peaks: List[Peak]
 ```
 
