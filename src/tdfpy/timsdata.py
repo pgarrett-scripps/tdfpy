@@ -170,7 +170,7 @@ dll.tims_extract_chromatograms.argtypes = [
 ]
 dll.tims_extract_chromatograms.restype = c_uint32
 
-convfunc_argtypes: list[Any] = [
+convfunc_argtypes: List[Any] = [
     c_uint64,
     c_int64,
     POINTER(c_double),

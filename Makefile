@@ -1,19 +1,22 @@
-.PHONY: help install install-dev sync test lint mypy pylint format clean build publish
+.PHONY: help install install-dev sync test lint mypy pylint format clean build publish workflow-pylint workflow-test workflow-publish
 
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  make install      - Install project dependencies"
-	@echo "  make install-dev  - Install project with dev dependencies"
-	@echo "  make sync         - Sync dependencies (same as install)"
-	@echo "  make test         - Run tests with pytest"
-	@echo "  make lint         - Run all linting (mypy + pylint)"
-	@echo "  make mypy         - Run mypy type checking"
-	@echo "  make pylint       - Run pylint"
-	@echo "  make format       - Format code (if ruff/black installed)"
-	@echo "  make build        - Build the package"
-	@echo "  make clean        - Clean build artifacts and caches"
-	@echo "  make publish      - Publish to PyPI"
+	@echo "  make install          - Install project dependencies"
+	@echo "  make install-dev      - Install project with dev dependencies"
+	@echo "  make sync             - Sync dependencies (same as install)"
+	@echo "  make test             - Run tests with pytest"
+	@echo "  make lint             - Run all linting (mypy + pylint)"
+	@echo "  make mypy             - Run mypy type checking"
+	@echo "  make pylint           - Run pylint"
+	@echo "  make format           - Format code (if ruff/black installed)"
+	@echo "  make build            - Build the package"
+	@echo "  make clean            - Clean build artifacts and caches"
+	@echo "  make publish          - Publish to PyPI"
+	@echo "  make workflow-pylint  - Trigger GitHub Pylint workflow"
+	@echo "  make workflow-test    - Trigger GitHub Python package workflow"
+	@echo "  make workflow-publish - Trigger GitHub publish workflow"
 
 # Install dependencies
 install:
@@ -71,3 +74,13 @@ clean:
 # Publish to PyPI (requires UV_PUBLISH_TOKEN or interactive auth)
 publish: build
 	uv publish
+
+# GitHub workflow triggers
+workflow-pylint:
+	gh workflow run pylint.yml
+
+workflow-test:
+	gh workflow run python-package.yml
+
+workflow-publish:
+	gh workflow run python-publish.yml
