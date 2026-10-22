@@ -38,7 +38,7 @@ import os
 import sqlite3
 import sys
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
@@ -730,7 +730,7 @@ class TimsData:
 
 
 @contextmanager
-def timsdata_connect(analysis_dir: str | os.PathLike[str]) -> Iterator[TimsData]:
+def timsdata_connect(analysis_dir: str | os.PathLike[str]) -> Generator[TimsData, None, None]:
     """Open a :class:`TimsData` and close it on exit."""
     td: TimsData | None = None
     try:
