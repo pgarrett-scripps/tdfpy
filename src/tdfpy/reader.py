@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 import warnings
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from contextlib import closing, contextmanager
 from enum import StrEnum
 from functools import cached_property
@@ -54,7 +54,7 @@ class AcquisitionType(StrEnum):
 
 
 @contextmanager
-def _tdf_connection(tdf_path: Path) -> Iterator[sqlite3.Connection]:
+def _tdf_connection(tdf_path: Path) -> Generator[sqlite3.Connection, None, None]:
     """Read-only SQLite connection to ``analysis.tdf``; SQLite errors become :class:`TdfpyError`."""
     try:
         with closing(sqlite3.connect(tdf_path.resolve().as_uri() + "?mode=ro", uri=True)) as conn:

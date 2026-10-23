@@ -4,7 +4,7 @@ import hashlib
 import json
 import sqlite3
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, fields, is_dataclass
 from enum import Enum
@@ -212,7 +212,7 @@ class AcquisitionService:
         return candidate
 
     @contextmanager
-    def connection(self, path: Path) -> Iterator[sqlite3.Connection]:
+    def connection(self, path: Path) -> Generator[sqlite3.Connection, None, None]:
         connection = sqlite3.connect((path / "analysis.tdf").as_uri() + "?mode=ro", uri=True)
         connection.row_factory = sqlite3.Row
         try:
